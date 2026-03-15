@@ -40,7 +40,7 @@ function chunkContent(filePath: string, content: string, sha: string) {
   };
   const language = langMap[ext] ?? "plaintext";
   const lines = content.split("\n");
-  const chunks = [];
+  const chunks: { chunkIndex: number; content: string; tokenCount: number; metadata: { language: string; startLine: number; endLine: number; sha: string } }[] = [];
   let current: string[] = [], chars = 0, startLine = 1, idx = 0;
 
   const flush = (endLine: number) => {
