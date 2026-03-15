@@ -1,6 +1,4 @@
 // src/app/auth/callback/route.ts
-// Handles the redirect after magic link / OAuth sign-in
-
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
@@ -18,9 +16,9 @@ export async function GET(req: NextRequest) {
       {
         cookies: {
           getAll: () => cookieStore.getAll(),
-          setAll: (cookiesToSet) => {
+          setAll: (cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) => {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+              cookieStore.set(name, value, options as Parameters<typeof cookieStore.set>[2])
             );
           },
         },
@@ -33,6 +31,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Auth failed — redirect to login with error
   return NextResponse.redirect(`${origin}/login?error=auth_failed`);
 }
