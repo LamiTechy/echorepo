@@ -173,6 +173,7 @@ export default function ChatPage({ params }: PageProps) {
   const [activeSource, setActiveSource] = useState<SourceChunk | null>(null);
   const [streamingContent, setStreamingContent] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [repoNotSynced, setRepoNotSynced] = useState(false);
   const [, startTransition] = useTransition();
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -233,6 +234,7 @@ export default function ChatPage({ params }: PageProps) {
       setIsStreaming(true);
       setStreamingContent("");
       setSources([]);
+      setRepoNotSynced(false);
 
       let accumulatedContent = "";
 
@@ -242,6 +244,9 @@ export default function ChatPage({ params }: PageProps) {
         question,
         onSources: (newSources) => {
           setSources(newSources);
+          if (newSources.length === 0) {
+            setRepoNotSynced(true);
+          }
         },
         onToken: (token) => {
           accumulatedContent += token;
@@ -317,6 +322,12 @@ export default function ChatPage({ params }: PageProps) {
             {optimisticMessages.length === 0 && !isStreaming && (
               <WelcomeScreen repoName={repo?.full_name} />
             )}
+            {repoNotSynced && (
+              <NotSyncedBanner
+                repoId={repoId}
+                onSyncDone={() => setRepoNotSynced(false)}
+              />
+            )}
             {optimisticMessages.map((msg) => (
               <MessageBubble key={msg.id} msg={msg} />
             ))}
@@ -337,6 +348,84 @@ export default function ChatPage({ params }: PageProps) {
           <ChatInput onSubmit={handleSubmit} disabled={isStreaming} />
         </main>
       </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Not-synced banner
+// ============================================================
+
+function NotSyncedBanner({
+  repoId,
+  onSyncDone,
+}: {
+  repoId: string;
+  onSyncDone: () => void;
+}) {
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const triggerSync = async () => {
+    setSyncing(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/repos/trigger-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repoId }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Sync failed (${res.status})`);
+      }
+      onSyncDone();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto my-8 max-w-md rounded border border-[oklch(0.55_0.16_85)] bg-[oklch(0.10_0.02_85)] p-5 font-mono text-sm">
+      <div className="flex items-center gap-2 text-[oklch(0.78_0.16_85)] mb-2">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        <span className="font-semibold">Repo not indexed yet</span>
+      </div>
+      <p className="text-[oklch(0.58_0.08_260)] mb-4 leading-relaxed">
+        No code chunks found for this repository. Trigger a sync so EchoRepo can
+        embed the files and answer questions.
+      </p>
+      {error && (
+        <p className="text-[oklch(0.65_0.18_25)] mb-3 text-xs">{error}</p>
+      )}
+      <button
+        onClick={triggerSync}
+        disabled={syncing}
+        className="flex items-center gap-2 px-4 py-2 rounded bg-[oklch(0.65_0.18_145)] text-[oklch(0.08_0.01_260)] text-xs font-semibold hover:bg-[oklch(0.72_0.16_145)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        {syncing ? (
+          <>
+            <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+            </svg>
+            Syncing…
+          </>
+        ) : (
+          <>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="1 4 1 10 7 10" />
+              <path d="M3.51 15a9 9 0 1 0 .49-3.84" />
+            </svg>
+            Sync now
+          </>
+        )}
+      </button>
     </div>
   );
 }
