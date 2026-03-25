@@ -370,7 +370,7 @@ function NotSyncedBanner({
     setSyncing(true);
     setError(null);
     try {
-      const res = await fetch("/api/repos/trigger-sync", {
+      const res = await fetch("/api/repos/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ repoId }),
